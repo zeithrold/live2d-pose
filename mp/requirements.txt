@@ -1,7 +1,8 @@
 -f https://download.pytorch.org/whl/torch_stable.html
-torch==1.6.0+cpu
-torchvision==0.7.0+cpu
-mediapipe @ git+https://github.com/google/mediapipe@0.7.12
+# torch==1.6.0+cpu
+# torchvision==0.7.0+cpu
+# mediapipe @ git+https://github.com/google/mediapipe@0.8.11
+# Last official Python3.6 supported Mediapipe version: 0.7.12
 websockets
 jupyter
 matplotlib
