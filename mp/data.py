@@ -46,7 +46,7 @@ class MPImageQueueBody:
         )
 
     @staticmethod
-    def from_json(data: dict):
+    def from_dict(data: dict):
         return MPImageQueueBody.image(
             int(data["timestamp_ms"]), np.array(data["image"], dtype=np.uint8)
         )

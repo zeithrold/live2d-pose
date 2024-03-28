@@ -1,6 +1,5 @@
 import asyncio
 import json
-import uuid
 from queue import Queue
 
 import websockets
@@ -11,13 +10,8 @@ from .data import MPImageQueueBody, MPResultQueueBody, MPResultQueueType
 from .mp import MPThread
 
 
-def random_id():
-    # 生成随机ID的偏方
-    return str(uuid.uuid4())[:8]
-
-
 async def handler(ws: server.WebSocketServerProtocol):
-    unique_id = random_id()
+    unique_id = ws.id[:8]
     logger.info(
         f"[WebSocketHandler-{unique_id}] 成功连接，正在创建MediaPipe图像处理线程"
     )
@@ -31,18 +25,23 @@ async def handler(ws: server.WebSocketServerProtocol):
     await ws.send(json.dumps({"type": "ready"}))
     while True:
         try:
-            data = await ws.recv()
-            data = json.loads(data)
-            body = MPImageBody.from_json(data)
+            image = await ws.recv()
+            body = MPImageQueueBody.image(image)
             image_queue.put(body)
             body = result_queue.get()
+            await ws.send(json.dumps(body.data))
+        except websockets.exceptions.ConnectionClosedError:
             logger.info(
-                f"[WebSocketHandler-{unique_id}] 发送来自时间戳{body.timestamp_ms}的结果"
+                f"[WebSocketHandler-{unique_id}] WebSocket连接已关闭，正在关闭MediaPipe图像处理线程"
             )
-            await ws.send(json.dumps(body))
+            body = MPImageQueueBody.closed()
+            image_queue.put(body)
+            break
         except Exception as e:
-            logger.error(f"[WebSocketHandler-{unique_id}] {e}")
-            body = MPImageBody.closed_body()
+            logger.error(
+                f"[WebSocketHandler-{unique_id}] 发生错误：{e}，正在关闭MediaPipe图像处理线程"
+            )
+            body = MPImageQueueBody.closed()
             image_queue.put(body)
             break
 
