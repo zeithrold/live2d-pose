@@ -7,7 +7,7 @@ import websockets
 import websockets.server as server
 from loguru import logger
 
-from .data import MPImageBody, MPResultBody, MPResultType
+from .data import MPImageQueueBody, MPResultQueueBody, MPResultQueueType
 from .mp import MPThread
 
 
@@ -21,12 +21,12 @@ async def handler(ws: server.WebSocketServerProtocol):
     logger.info(
         f"[WebSocketHandler-{unique_id}] 成功连接，正在创建MediaPipe图像处理线程"
     )
-    image_queue = Queue[MPImageBody]()
-    result_queue = Queue[MPResultBody]()
+    image_queue = Queue[MPImageQueueBody]()
+    result_queue = Queue[MPResultQueueBody]()
     t = MPThread(unique_id, image_queue, result_queue)
     t.start()
     body = result_queue.get()
-    if not body.type == MPResultType.READY:
+    if not body.type == MPResultQueueType.READY:
         raise ValueError("MediaPipe初始化失败")
     await ws.send(json.dumps({"type": "ready"}))
     while True:
@@ -51,4 +51,3 @@ async def main():
     logger.info("Starting server")
     async with websockets.serve(handler, "localhost", 8765):
         await asyncio.Future()
-

@@ -8,54 +8,85 @@ import numpy as np
 FaceLandmarkerResult = mp.tasks.vision.FaceLandmarkerResult
 
 
-class MPImageBody:
-    timestamp_ms: int | None
-    image: np.ndarray | None
-    closed: bool
+class MPImageQueueType(Enum):
+    IMAGE = 0
+    CLOSED = 1
 
-    def __init__(
-        self, timestamp_ms: int | None, image: np.ndarray | None, closed: bool
-    ):
+
+class MPResultQueueType(Enum):
+    READY = 0
+    RESULT = 1
+
+
+class MPImageBody:
+    timestamp_ms: int
+    image: np.ndarray
+
+    def __init__(self, timestamp_ms: int, image: np.ndarray):
         self.timestamp_ms = timestamp_ms
         self.image = image
-        self.closed = closed
+
+
+class MPImageQueueBody:
+    type: MPImageQueueType
+    body: MPImageBody | None
+
+    def __init__(self, type: MPImageQueueType, body: MPImageBody | None):
+        self.type = type
+        self.body = body
 
     @staticmethod
-    def closed_body():
-        return MPImageBody(None, None, True)
+    def closed():
+        return MPImageQueueBody(MPImageQueueType.CLOSED, None)
+
+    @staticmethod
+    def image(timestamp_ms: int, image: np.ndarray):
+        return MPImageQueueBody(
+            MPImageQueueType.IMAGE, MPImageBody(timestamp_ms, image)
+        )
 
     @staticmethod
     def from_json(data: dict):
-        return MPImageBody(
-            data.get("timestamp_ms"),
-            np.array(data.get("image")),
-            False,
+        return MPImageQueueBody.image(
+            int(data["timestamp_ms"]), np.array(data["image"], dtype=np.uint8)
         )
-
-
-class MPResultType(Enum):
-    READY = 0
-    RESULT = 1
 
 
 class MPResultBody:
     timestamp_ms: int
     result: FaceLandmarkerResult
-    type: MPResultType
 
-    def __init__(
-        self, timestamp_ms: int, result: FaceLandmarkerResult, type: MPResultType
-    ):
+    def __init__(self, timestamp_ms: int, result: FaceLandmarkerResult):
         self.timestamp_ms = timestamp_ms
-        self.type = type
         self.result = result
 
-    @staticmethod
-    def ready_body():
-        return MPResultBody(0, None, MPResultType.READY)
+    def to_json(self):
+        result = self.result
+        face_landmarks = result.face_landmarks
+        face_landmarks = [
+            [landmark.__dict__ for landmark in face] for face in face_landmarks
+        ]
+        obj = {
+            "timeStampMs": self.timestamp_ms,
+            "multiFaceLandmarks": face_landmarks,
+        }
+        return json.dumps(obj)
+
+
+class MPResultQueueBody:
+    type: MPResultQueueType
+    body: MPResultBody | None
+
+    def __init__(self, type: MPResultQueueType, body: MPResultBody | None):
+        self.type = type
+        self.body = body
 
     @staticmethod
-    def from_mp(timestamp_ms: int, result: FaceLandmarkerResult):
-        result = json.dumps(result)
-        return MPResultBody(timestamp_ms, result, MPResultType.RESULT)
-    
+    def ready():
+        return MPResultQueueBody(MPResultQueueType.READY, None)
+
+    @staticmethod
+    def result(timestamp_ms: int, result: FaceLandmarkerResult):
+        return MPResultQueueBody(
+            MPResultQueueType.RESULT, MPResultBody(timestamp_ms, result)
+        )
