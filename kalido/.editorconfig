@@ -1,0 +1,2 @@
+[*.{ts,tsx}]
+intent_size = 2

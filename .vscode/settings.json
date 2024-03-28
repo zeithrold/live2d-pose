@@ -1,12 +1,12 @@
 {
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.formatOnType": true,
     "[python]": {
         "diffEditor.ignoreTrimWhitespace": false,
         "gitlens.codeLens.symbolScopes": [
             "!Module"
         ],
-        "editor.formatOnType": true,
-        "editor.wordBasedSuggestions": "off",
-        "editor.formatOnSave": true,
         "editor.defaultFormatter": "omnilib.ufmt"
     }
 }
