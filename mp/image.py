@@ -1,12 +1,11 @@
-import json
 import os
 import queue
 import threading
 
 import mediapipe as mp
-from loguru import logger
 
-from .data import MPImageQueueBody, MPImageQueueType, MPResultQueueBody
+from data import MPImageQueueBody, MPImageQueueType, MPResultQueueBody
+from loguru import logger
 
 BaseOptions = mp.tasks.BaseOptions
 FaceLandmarker = mp.tasks.vision.FaceLandmarker
@@ -14,7 +13,7 @@ FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
 FaceLandmarkerResult = mp.tasks.vision.FaceLandmarkerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
 
-model_path = os.environ.get("MODEL_PATH", "models/face_landmark.tflite")
+model_path = os.environ.get("MODEL_PATH", "models/face_landmarker.task")
 
 
 class MPThread(threading.Thread):
@@ -32,7 +31,7 @@ class MPThread(threading.Thread):
         # 用于发送结果的队列
         self.response_queue = response_queue
         # 初始化MediaPipe FaceLandmarker
-        self.mp_options = BaseOptions(
+        self.mp_options = FaceLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=model_path),
             running_mode=VisionRunningMode.LIVE_STREAM,
             result_callback=self.callback,
@@ -44,6 +43,7 @@ class MPThread(threading.Thread):
         logger.info(f"[MPThread-{self.unique_id}] 收到来自时间戳{timestamp_ms}的结果")
         self.response_queue.put(MPResultQueueBody.result(timestamp_ms, result))
 
+    @logger.catch
     def run(self):
         logger.info(f"[MPThread-{self.unique_id}] 正在启动图像处理线程")
         with FaceLandmarker.create_from_options(self.mp_options) as landmarker:

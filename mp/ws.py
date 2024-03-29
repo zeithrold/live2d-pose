@@ -4,14 +4,14 @@ from queue import Queue
 
 import websockets
 import websockets.server as server
-from loguru import logger
 
-from .data import MPImageQueueBody, MPResultQueueBody, MPResultQueueType
-from .mp import MPThread
+from data import MPImageQueueBody, MPResultQueueBody, MPResultQueueType
+from image import MPThread
+from loguru import logger
 
 
 async def handler(ws: server.WebSocketServerProtocol):
-    unique_id = ws.id[:8]
+    unique_id = ws.id.hex[:8]
     logger.info(
         f"[WebSocketHandler-{unique_id}] 成功连接，正在创建MediaPipe图像处理线程"
     )
@@ -44,9 +44,3 @@ async def handler(ws: server.WebSocketServerProtocol):
             body = MPImageQueueBody.closed()
             image_queue.put(body)
             break
-
-
-async def main():
-    logger.info("Starting server")
-    async with websockets.serve(handler, "localhost", 8765):
-        await asyncio.Future()
