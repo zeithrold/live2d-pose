@@ -60,17 +60,14 @@ class MPResultBody:
         self.timestamp_ms = timestamp_ms
         self.result = result
 
-    def to_json(self):
-        result = self.result
-        face_landmarks = result.face_landmarks
+    def to_binary(self):
+        face_landmarks = self.result.face_landmarks
         face_landmarks = [
-            [landmark.__dict__ for landmark in face] for face in face_landmarks
+            [[landmark.x, landmark.y, landmark.z] for landmark in face]
+            for face in face_landmarks
         ]
-        obj = {
-            "timeStampMs": self.timestamp_ms,
-            "multiFaceLandmarks": face_landmarks,
-        }
-        return json.dumps(obj)
+        face_landmarks = np.array(face_landmarks, dtype=np.float32)
+        return face_landmarks.tobytes()
 
 
 class MPResultQueueBody:

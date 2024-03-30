@@ -7,7 +7,7 @@ from ws import handler
 
 async def main():
     try:
-        async with serve.serve(handler, "localhost", 8765):
+        async with serve.serve(handler, "localhost", 8765, compression=None):
             logger.success("Server running on ws://localhost:8765")
             await asyncio.Future()
     except KeyboardInterrupt:
