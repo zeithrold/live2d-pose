@@ -1,9 +1,9 @@
 import json
 
 import time
-from queue import Queue
-from threading import Event
 import urllib.parse as urlparse
+from asyncio import Event as AsyncEvent, Queue as AsyncQueue
+from queue import Queue
 
 import cv2
 
@@ -18,7 +18,9 @@ from loguru import logger
 
 timestamp_ms = lambda: int(time.time() * 1000)
 
-locks: dict[str, tuple[Queue[bytes], Event]] = {}
+locks: dict[str, tuple[AsyncQueue[bytes], AsyncEvent, AsyncEvent, AsyncQueue[dict]]] = (
+    {}
+)
 
 
 async def image_handler(ws: server.WebSocketServerProtocol):
@@ -40,14 +42,20 @@ async def image_handler(ws: server.WebSocketServerProtocol):
     logger.info(f"[WebSocketImageHandler-{unique_id}] 正在等待图像大小数据")
     payload = await ws.recv()
     payload = json.loads(payload)
-    image_size = payload["image_size"]
+    image_size = payload["imageSize"]
+    await ws.send(json.dumps({"type": "ok"}))
+    (callback_queue, browser_connected_event, closed_event, image_size_queue) = locks[
+        uuid
+    ]
     logger.info(f"[WebSocketImageHandler-{unique_id}] 收到图像大小数据：{image_size}")
-    await ws.send(json.dumps({"type": "ready"}))
-    callback_queue, bridge_event = locks[uuid]
-    logger.info(f"[WebSocketImageHandler-{unique_id}] 浏览器参数：uuid = {uuid}，正在等待浏览器连接")
-    bridge_event.wait()
+    await image_size_queue.put(image_size)
+    logger.info(
+        f"[WebSocketImageHandler-{unique_id}] 浏览器参数：uuid = {uuid} ，正在等待浏览器连接"
+    )
+    await browser_connected_event.wait()
     logger.info(f"[WebSocketImageHandler-{unique_id}] 浏览器已连接")
-    bridge_event.clear()
+    browser_connected_event.clear()
+    await ws.send(json.dumps({"type": "ready"}))
     while True:
         try:
             logger.debug(f"[WebSocketImageHandler-{unique_id}] 等待图像数据")
@@ -55,7 +63,9 @@ async def image_handler(ws: server.WebSocketServerProtocol):
             current_timestamp_ms = timestamp_ms()
             # 获取图像时间戳
             image_timestamp_ms = current_timestamp_ms - base_timestamp_ms
-            logger.debug(f"[WebSocketImageHandler-{unique_id}] 收到图像数据：{len(payload)}")
+            logger.debug(
+                f"[WebSocketImageHandler-{unique_id}] 收到图像数据：{len(payload)}"
+            )
             # 从Payload (bytes) 获取图像数据
             compressed_image = np.frombuffer(payload, dtype=np.uint8)
             decompressed_image = cv2.imdecode(compressed_image, cv2.IMREAD_COLOR)
@@ -72,9 +82,11 @@ async def image_handler(ws: server.WebSocketServerProtocol):
             logger.debug(f"[WebSocketImageHandler-{unique_id}] 从图像处理线程收到结果")
             result = result.body.to_binary()
             logger.debug(f"[WebSocketImageHandler-{unique_id}] 结果长度：{len(result)}")
-            callback_queue.put(result)
-            logger.debug(f"[WebSocketImageHandler-{unique_id}] 结果提交至浏览器回调队列")
-            if bridge_event.is_set():
+            await callback_queue.put(result)
+            logger.debug(
+                f"[WebSocketImageHandler-{unique_id}] 结果提交至浏览器回调队列"
+            )
+            if closed_event.is_set():
                 logger.info(f"[WebSocketImageHandler-{unique_id}] 浏览器已断开连接")
                 del locks[uuid]
                 break
@@ -93,34 +105,42 @@ async def image_handler(ws: server.WebSocketServerProtocol):
                 )
             result = MPImageQueueBody.closed()
             image_queue.put(result)
+            closed_event.set()
             break
+
 
 async def browser_handler(ws: server.WebSocketServerProtocol):
     unique_id = ws.id.hex[:8]
     path = ws.path
     query = urlparse.parse_qs(urlparse.urlparse(path).query)
-    if 'uuid' not in query:
+    if "uuid" not in query:
         logger.warning(f"[WebSocketBrowserHandler-{unique_id}] 缺少参数 uuid，无效连接")
         await ws.close()
         return
-    target_uuid = query['uuid'][0]
-    if target_uuid not in locks:
+    target_uuid = query["uuid"][0]
+    logger.debug(f"[WebSocketBrowserHandler-{unique_id}] 锁列表：{locks.keys()}")
+    if target_uuid not in locks.keys():
         logger.warning(f"[WebSocketBrowserHandler-{unique_id}] uuid 无效，无效连接")
+        logger.warning(f"[WebSocketBrowserHandler-{unique_id}] uuid = {target_uuid}")
         await ws.close()
         return
     logger.success(f"[WebSocketBrowserHandler-{unique_id}] 成功连接")
-    callback_queue, bridge_event = locks[target_uuid]
+    callback_queue, bridge_event, closed_event, image_size_queue = locks[target_uuid]
     bridge_event.set()
-    await ws.send(json.dumps({"type": "ready"}))
+    image_size = await image_size_queue.get()
+    await ws.send(json.dumps({"type": "ready", "imageSize": image_size}))
+    logger.info(f"[WebSocketBrowserHandler-{unique_id}] 已发送准备就绪")
     while True:
         try:
-            if bridge_event.is_set():
+            if closed_event.is_set():
                 logger.info(f"[WebSocketBrowserHandler-{unique_id}] 图像处理线程已关闭")
                 del locks[target_uuid]
                 break
             # IMPORTANT: 这里会阻塞，注意和图像处理handler避免产生死锁
-            result = callback_queue.get()
-            logger.debug(f"[WebSocketBrowserHandler-{unique_id}] 收到结果：{len(result)}")
+            result = await callback_queue.get()
+            logger.debug(
+                f"[WebSocketBrowserHandler-{unique_id}] 收到结果：{len(result)}"
+            )
             await ws.send(result)
             logger.debug(f"[WebSocketBrowserHandler-{unique_id}] 结果已发送")
         except Exception as e:
@@ -128,27 +148,33 @@ async def browser_handler(ws: server.WebSocketServerProtocol):
                 logger.info(
                     f"[WebSocketBrowserHandler-{unique_id}] WebSocket连接已关闭"
                 )
-                bridge_event.set()
+                await closed_event.set()
             elif isinstance(e, KeyboardInterrupt):
-                logger.info(
-                    f"[WebSocketBrowserHandler-{unique_id}] 服务器正在关闭"
-                )
-                bridge_event.set()
+                logger.info(f"[WebSocketBrowserHandler-{unique_id}] 服务器正在关闭")
+                await closed_event.set()
             else:
-                logger.error(
-                    f"[WebSocketBrowserHandler-{unique_id}] 发生错误：{e}"
-                )
+                logger.error(f"[WebSocketBrowserHandler-{unique_id}] 发生错误：{e}")
             break
+
 
 async def handler(ws: server.WebSocketServerProtocol):
     unique_id = ws.id.hex[:8]
     path = ws.path
     parsed_path = urlparse.urlparse(path)
     if parsed_path.path == "/image":
-        locks[ws.id.hex] = (Queue[bytes](), Event())
+        locks[ws.id.hex] = (
+            AsyncQueue[bytes](),
+            AsyncEvent(),
+            AsyncEvent(),
+            AsyncQueue[dict](),
+        )
+        logger.debug(f"[WebSocketRootHandler-{unique_id}] 已创建锁")
+        logger.debug(f"[WebSocketRootHandler-{unique_id}] 锁数量：{len(locks)}")
         await image_handler(ws)
     elif parsed_path.path == "/browser":
         await browser_handler(ws)
     else:
-        logger.warning(f"[WebSocketRootHandler-{unique_id}] 未知路径：{parsed_path.path}")
+        logger.warning(
+            f"[WebSocketRootHandler-{unique_id}] 未知路径：{parsed_path.path}"
+        )
         await ws.close()
