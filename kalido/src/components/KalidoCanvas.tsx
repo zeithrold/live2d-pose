@@ -11,9 +11,13 @@ const KalidoCanvas = observer(() => {
       canvasRef.current == null ||
       store.live2dModelUrl == null ||
       store.wsUrl == null ||
-      !store.running ||
       !store.ready
     ) {
+      return
+    }
+    if (!store.running) {
+      store.stopWs()
+      store.stopPixiApp()
       return
     }
     const canvas = canvasRef.current
@@ -21,9 +25,17 @@ const KalidoCanvas = observer(() => {
     canvas.height = window.innerHeight
     const { model, pixiApp } = createLive2D(store.live2dModelUrl, canvas)
     const callback = createWsCallback(model)
-    listenToMediaPipe(store.wsUrl, callback, (_) => {
-      pixiApp.stop()
-    })
+    const ws = listenToMediaPipe(
+      store.wsUrl,
+      callback,
+      (_) => {
+        store.setRunning(true)
+      },
+      (_) => {
+        store.setRunning(false)
+        pixiApp.stop()
+      })
+    store.setWs(ws)
   }, [store.ready, store.running])
   if (store.live2dModelUrl == null || store.wsUrl == null) {
     return <Typography variant='h3'>

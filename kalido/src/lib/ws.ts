@@ -39,10 +39,14 @@ function parseMessage (message: Float32Array): MediaPipeFaceLandmark[][] {
 function listenToMediaPipe (
   url: string,
   callback: (imageSize: ImageSize, landmarks: MediaPipeFaceLandmark[][]
-  ) => void, onClose: (event: CloseEvent) => void): void {
+  ) => void,
+  onOpen: (event: Event) => void,
+  onClose: (event: CloseEvent) => void
+): WebSocket {
   const ws = new WebSocket(url)
-  ws.addEventListener('open', (_) => {
+  ws.addEventListener('open', (event) => {
     console.debug(`[ws] 成功创建 WebSocket 连接: ${url}`)
+    onOpen(event)
   })
   let imageSize: ImageSize | null = null
   ws.addEventListener('message', (event) => {
@@ -78,6 +82,7 @@ function listenToMediaPipe (
     onClose(event as CloseEvent)
   })
   ws.addEventListener('close', onClose)
+  return ws
 }
 
 export { listenToMediaPipe }

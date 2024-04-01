@@ -314,3 +314,5 @@ pyrightconfig.json
 
 *.task
 external/
+
+static/
