@@ -3,8 +3,9 @@ from argparse import ArgumentParser
 
 import websockets.server as serve
 from loguru import logger
-from ws import image_handler
+from ws import handler
 
+logger.add("app.log")
 
 argparser = ArgumentParser()
 argparser.description = "启动WebSocket服务器"
@@ -21,9 +22,11 @@ port = args.port
 
 
 async def main():
-    async with serve.serve(image_handler, ip, port):
+    async with serve.serve(handler, ip, port):
         logger.success(f"[MainThread] WebSocket服务器已启动于 ws://{ip}:{port}")
-        logger.info(f"[MainThread] 若要开始，请将图像通过WebSocket发送至ws://{ip}:{port}/image")
+        logger.info(
+            f"[MainThread] 若要开始，请将图像通过WebSocket发送至ws://{ip}:{port}/image"
+        )
         await asyncio.Future()
 
 
