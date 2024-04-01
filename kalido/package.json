@@ -3,16 +3,18 @@
   "version": "1.0.0",
   "source": "./public/index.html",
   "scripts": {
-    "start": "parcel",
-    "build": "parcel build"
+    "start": "python3 scripts.py check && parcel",
+    "build": "python3 scripts.py check && parcel build",
+    "download": "python3 scripts.py download"
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
-  "main": "index.js",
   "license": "MIT",
   "devDependencies": {
     "@types/react": "^18.2.73",
     "@types/react-dom": "^18.2.22",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "buffer": "^5.5.0||^6.0.0",
     "eslint": "^8.0.1",
     "eslint-config-standard-with-typescript": "^43.0.1",
     "eslint-plugin-import": "^2.25.2",
@@ -20,6 +22,7 @@
     "eslint-plugin-promise": "^6.0.0",
     "eslint-plugin-react": "^7.34.1",
     "parcel": "^2.12.0",
+    "path-browserify": "^1.0.0",
     "process": "^0.11.10",
     "typescript": "*"
   },
@@ -28,8 +31,13 @@
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.15.14",
     "@mui/material": "^5.15.14",
+    "pixi.js": "^8.0.4",
     "kalidokit": "^1.1.5",
+    "mobx": "^6.12.3",
+    "mobx-react": "^9.1.1",
+    "pixi-live2d-display": "^0.4.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "yup": "^1.4.0"
   }
 }

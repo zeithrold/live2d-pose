@@ -1,10 +1,10 @@
-import React from 'react'
-import AppBar from '@mui/material/AppBar'
-import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
-import Toolbar from '@mui/material/Toolbar'
 import Done from '@mui/icons-material/Done'
 import Warning from '@mui/icons-material/Warning'
+import AppBar from '@mui/material/AppBar'
+import Button from '@mui/material/Button'
+import Toolbar from '@mui/material/Toolbar'
+import Typography from '@mui/material/Typography'
+import React from 'react'
 
 export default function AppBarComponent (): React.JSX.Element {
   const [connected, setConnected] = React.useState(false)
