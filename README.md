@@ -23,8 +23,7 @@ with FaceLandmarker.create_from_options(option) as landmarker:
 
 ### Frontend: KalidoKit
 
-[KalidoKit](https://github.com/yeemachine/kalidokit) is a About
-Blendshape and kinematics calculator. Originally KalidoKit accepts landmarks directly from MediaPipe on browser, but we seperate it to combine Live2D model bind and face tracking on JetBot.
+[KalidoKit](https://github.com/yeemachine/kalidokit) is a blendshape and kinematics calculator. Originally KalidoKit accepts landmarks directly from MediaPipe on browser, but we seperate it to combine Live2D model bind and face tracking on JetBot.
 
 Using KalidoKit is also simple. You can quick start once you get MediaPipe landmark result from WebSocket:
 
