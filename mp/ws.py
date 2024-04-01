@@ -11,6 +11,8 @@ import numpy as np
 import websockets
 import websockets.server as server
 
+from args import args
+
 from data import MPImageQueueBody, MPResultQueueBody, MPResultQueueType
 from image import MPThread
 from loguru import logger
@@ -52,6 +54,14 @@ async def image_handler(ws: server.WebSocketServerProtocol):
     logger.info(
         f"[WebSocketImageHandler-{unique_id}] 浏览器参数：uuid = {uuid} ，正在等待浏览器连接"
     )
+    ws_url = f"ws://{args.ip}:{args.port}/browser?uuid={uuid}"
+    model_url = args.model
+    params = {
+        'ws': ws_url,
+        'model': model_url
+    }
+    url = f"{args.frontend}?{urlparse.urlencode(params)}"
+    logger.info(f"[WebSocketImageHandler-{unique_id}] 发送前端地址：{url}")
     await browser_connected_event.wait()
     logger.info(f"[WebSocketImageHandler-{unique_id}] 浏览器已连接")
     browser_connected_event.clear()
@@ -92,6 +102,7 @@ async def image_handler(ws: server.WebSocketServerProtocol):
                 break
         except Exception as e:
             if isinstance(e, websockets.exceptions.ConnectionClosed):
+                print(e)
                 logger.info(
                     f"[WebSocketImageHandler-{unique_id}] WebSocket连接已关闭，正在关闭MediaPipe图像处理线程"
                 )
