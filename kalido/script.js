@@ -37,6 +37,8 @@ const modelUrl = decodeURIComponent(searchParams.get('model'))
 
 let currentModel, facemesh;
 
+let imageSize = null;
+
 (async function main() {
   // create pixi application
   const app = new PIXI.Application({
@@ -84,7 +86,6 @@ let currentModel, facemesh;
   app.stage.addChild(currentModel);
 
   const ws = new WebSocket(wsUrl);
-  let imageSize = null
   ws.addEventListener('message', (event) => {
     if (typeof event.data === 'string') {
       const rawResponse = JSON.parse(event.data)
